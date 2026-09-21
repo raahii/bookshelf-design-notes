@@ -1,0 +1,31 @@
+# 本棚の図面ノート（index.html）のデータ
+# 本棚の名前をキーにした辞書。長さの単位はすべて mm。
+#   W/H/D: 幅・高さ・奥行き, t: 板厚, n: 棚板の枚数
+#   top/bottom: 天板・地板を入れるか, back/bt: 背板とその厚み, brk: L字金具（1枚あたり）
+#   mode: 棚の間隔（equal=均等 / custom=段ごと）, comps: 下から順の各段の内寸高さ
+#   overMode: はみ出しの指定（same=全部同じ / each=1枚ずつ）, over: はみ出し
+#   overDir: はみ出す向き（front/back/both）, shelfOvers: 棚板ごと（下から）, topOv/botOv: 天板・地板
+
+仕事部屋の本棚:
+  W: 540
+  H: 2000
+  D: 140
+  t: 19
+  n: 7
+  top: false
+  bottom: false
+  mode: custom
+  comps: [280, 260, 260, 230, 230, 230, 185]
+  back: false
+  bt: 4
+  brk: 4
+  material: ""
+  memo: ""
+  over: 0
+  overDir: front
+  topOver: true
+  overMode: each
+  shelfOvers: [65, 65, 65, 65, 65, 24, 24]
+  topOv: 0
+  botOv: 0
+  updatedAt: 2026-09-21T01:51:20.077Z

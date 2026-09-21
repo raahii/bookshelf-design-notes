@@ -86,6 +86,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .list li.current .open strong{color:var(--accent); font-weight:700}
 .list .del{background:none; border:0; color:var(--muted); font:inherit; font-size:12px; cursor:pointer; padding:6px}
 .list .del.confirm{color:var(--dim); font-weight:700}
+.tag{display:inline-block; border:1px solid var(--line); border-radius:3px; padding:0 4px; margin-left:6px; font-size:11px; color:var(--muted); font-variant-numeric:normal}
 .empty{font-size:13px; color:var(--muted); margin:0}
 .drawing{overflow-x:auto; background:var(--panel)}
 .drawing svg{display:block; width:100%; height:auto; min-width:520px; max-height:72vh}
@@ -229,13 +230,14 @@ input[type=file]{display:none}
 
       <section class="panel">
         <h2>保存先</h2>
-        <p class="note" id="dirNote" style="margin:0 0 12px"></p>
+        <p class="note" id="repoNote" style="margin:0 0 8px" hidden></p>
+        <p class="note" id="fileNote" style="margin:0 0 12px"></p>
         <div class="actions">
-          <button class="btn" id="dirPick">フォルダを選ぶ</button>
-          <button class="btn" id="dirGrant" hidden>フォルダに接続</button>
-          <button class="btn" id="dirForget" hidden>ブラウザ保存に戻す</button>
+          <button class="btn" id="filePick">data.yaml を選ぶ</button>
+          <button class="btn" id="fileGrant" hidden>ファイルに接続</button>
+          <button class="btn" id="fileForget" hidden>ブラウザ保存に戻す</button>
         </div>
-        <p class="note" id="dirHint" style="margin:8px 0 0" hidden></p>
+        <p class="note" id="fileHint" style="margin:8px 0 0" hidden></p>
       </section>
 
       <section class="panel">
@@ -263,7 +265,11 @@ input[type=file]{display:none}
   });
   let cur = DEFAULT();
   let shelves = [];
+  let repoShelves = [];   // data.yaml から読み込んだ本棚（読み取り専用）
   let downloads = null;
+  const DATA_FILE = "data.yaml";
+  const isShelf = d => !!d && typeof d === "object" && !Array.isArray(d) && "W" in d && "H" in d;
+  const strip = s => { const o = Object.assign({}, s); Object.keys(o).forEach(k => { if (k[0] === "_") delete o[k]; }); return o; };
 
   /* ---------- helpers ---------- */
   const num = v => { const x = parseFloat(v); return isFinite(x) ? x : 0; };
@@ -583,8 +589,8 @@ input[type=file]{display:none}
     const ul = $("list");
     $("listEmpty").hidden = shelves.length>0;
     ul.innerHTML = shelves.map(s => `<li class="${s.id===cur.id?"current":""}">
-      <button class="open" data-id="${esc(s.id)}"><strong>${esc(s.name||"無題の本棚")}</strong><span>${fmt(num(s.W))}×${fmt(num(s.H))}×${fmt(num(s.D))}</span></button>
-      <button class="del" data-id="${esc(s.id)}" aria-label="${esc(s.name||"無題の本棚")}を削除">削除</button></li>`).join("");
+      <button class="open" data-id="${esc(s.id)}"><strong>${esc(s.name||"無題の本棚")}</strong><span>${fmt(num(s.W))}×${fmt(num(s.H))}×${fmt(num(s.D))}${s._src==="repo"?`<span class="tag">${esc(DATA_FILE)}</span>`:""}</span></button>
+      ${s._src==="repo" ? "" : `<button class="del" data-id="${esc(s.id)}" aria-label="${esc(s.name||"無題の本棚")}を削除">削除</button>`}</li>`).join("");
   }
 
   function setMode(m, silent){
@@ -596,13 +602,157 @@ input[type=file]{display:none}
     if (!silent) renderAll();
   }
 
+  /* ---------- YAML（このツールが扱う形だけを読み書きする小さな実装） ---------- */
+  function yamlStr(v){
+    if (v === null || v === undefined) return "";
+    if (typeof v === "number") return isFinite(v) ? String(v) : "0";
+    if (typeof v === "boolean") return v ? "true" : "false";
+    const s = String(v);
+    const needsQuote = s === ""
+      || /^[\s>|&*!%@`#?,\[\]{}'"-]/.test(s) || /\s$/.test(s)
+      || /:\s|\s#/.test(s) || /[:#]$/.test(s) || /[\n\r\t]/.test(s)
+      || /^(true|false|null|yes|no|on|off|~)$/i.test(s)
+      || /^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i.test(s);
+    if (!needsQuote) return s;
+    return '"' + s.replace(/\\/g,"\\\\").replace(/"/g,'\\"').replace(/\n/g,"\\n").replace(/\r/g,"\\r").replace(/\t/g,"\\t") + '"';
+  }
+  function dumpShelves(list){
+    const order = Object.keys(DEFAULT()).filter(k => k !== "id");
+    const out = [
+      "# 本棚の図面ノート（index.html）のデータ",
+      "# 本棚の名前をキーにした辞書。長さの単位はすべて mm。",
+      "#   W/H/D: 幅・高さ・奥行き, t: 板厚, n: 棚板の枚数",
+      "#   top/bottom: 天板・地板を入れるか, back/bt: 背板とその厚み, brk: L字金具（1枚あたり）",
+      "#   mode: 棚の間隔（equal=均等 / custom=段ごと）, comps: 下から順の各段の内寸高さ",
+      "#   overMode: はみ出しの指定（same=全部同じ / each=1枚ずつ）, over: はみ出し",
+      "#   overDir: はみ出す向き（front/back/both）, shelfOvers: 棚板ごと（下から）, topOv/botOv: 天板・地板",
+      ""
+    ];
+    [...list].sort((a,b) => String(a.id).localeCompare(String(b.id), "ja")).forEach(s => {
+      out.push(yamlStr(s.id) + ":");
+      order.forEach(k => {
+        if (!(k in s)) return;
+        if (k === "name" && String(s.name) === String(s.id)) return;   // キーと同じなら省く
+        const v = s[k];
+        out.push("  " + yamlStr(k) + ": " + (Array.isArray(v) ? "[" + v.map(yamlStr).join(", ") + "]" : yamlStr(v)));
+      });
+      if (num(s.updatedAt)) out.push("  updatedAt: " + new Date(num(s.updatedAt)).toISOString());
+      out.push("");
+    });
+    return out.join("\n");
+  }
+  function parseYaml(text){
+    const lines = String(text).replace(/\r\n?/g, "\n").split("\n");
+    let i = 0;
+    const unescape = s => s.replace(/\\(.)/g, (m,c) => c === "n" ? "\n" : c === "r" ? "\r" : c === "t" ? "\t" : c);
+    function dropComment(ln){
+      let q = null, out = "";
+      for (let k=0;k<ln.length;k++){
+        const c = ln[k];
+        if (q){ out += c; if (c === "\\" && q === '"') out += (ln[++k] || ""); else if (c === q) q = null; continue; }
+        if (c === '"' || c === "'"){ q = c; out += c; continue; }
+        if (c === "#" && (k === 0 || /\s/.test(ln[k-1]))) break;
+        out += c;
+      }
+      return out.replace(/\s+$/, "");
+    }
+    function splitFlow(s){
+      const out = []; let cur = "", q = null;
+      for (let k=0;k<s.length;k++){
+        const c = s[k];
+        if (q){ cur += c; if (c === "\\" && q === '"') cur += (s[++k] || ""); else if (c === q) q = null; continue; }
+        if (c === '"' || c === "'"){ q = c; cur += c; continue; }
+        if (c === ","){ out.push(cur.trim()); cur = ""; continue; }
+        cur += c;
+      }
+      if (cur.trim() !== "") out.push(cur.trim());
+      return out;
+    }
+    function scalar(s){
+      s = s.trim();
+      if (s === "" || s === "~" || /^null$/i.test(s)) return null;
+      if (s.length > 1 && s[0] === '"' && s[s.length-1] === '"') return unescape(s.slice(1,-1));
+      if (s.length > 1 && s[0] === "'" && s[s.length-1] === "'") return s.slice(1,-1).replace(/''/g, "'");
+      if (s[0] === "[" && s[s.length-1] === "]") return splitFlow(s.slice(1,-1)).map(scalar);
+      if (/^(true|yes|on)$/i.test(s)) return true;
+      if (/^(false|no|off)$/i.test(s)) return false;
+      if (/^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i.test(s)) return parseFloat(s);
+      return s;
+    }
+    const indentOf = ln => ln.match(/^ */)[0].length;
+    function peek(){   // 空行とコメント行を飛ばして次の行を返す
+      while (i < lines.length){
+        const ln = dropComment(lines[i]);
+        if (ln.trim() === ""){ i++; continue; }
+        return ln;
+      }
+      return null;
+    }
+    function block(ind){
+      const map = {}, seq = [];
+      let isSeq = false;
+      while (true){
+        const ln = peek();
+        if (ln === null) break;
+        const at = indentOf(ln);
+        if (at < ind) break;
+        i++;
+        if (at > ind) continue;               // 想定外に深い行は読み飛ばす
+        const body = ln.slice(at);
+        if (body === "-" || body.startsWith("- ")){ isSeq = true; seq.push(scalar(body.slice(1))); continue; }
+        const m = body.match(/^("(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^:]+?)\s*:(?:\s+(.*))?$/);
+        if (!m) continue;
+        const key = String(scalar(m[1]));
+        const rest = (m[2] || "").trim();
+        if (rest !== ""){ map[key] = scalar(rest); continue; }
+        const mark = i, nx = peek();
+        if (nx !== null && indentOf(nx) > at) map[key] = block(indentOf(nx));
+        else { i = mark; map[key] = null; }
+      }
+      return isSeq ? seq : map;
+    }
+    const root = block(indentOf(peek() || ""));
+    return root;
+  }
+  const toTime = v => { if (typeof v === "number") return v; const t = Date.parse(v); return isFinite(t) ? t : 0; };
+  function parseShelves(text){
+    let root = null;
+    try { root = parseYaml(text); } catch(e){ return []; }
+    if (!root || typeof root !== "object" || Array.isArray(root)) return [];
+    const src = (root.shelves && typeof root.shelves === "object" && !Array.isArray(root.shelves)) ? root.shelves : root;
+    const out = [];
+    Object.keys(src).forEach(key => {
+      const v = src[key];
+      if (!isShelf(v)) return;
+      const s = Object.assign(DEFAULT(), v);
+      s.id = String(key);
+      if (!s.name) s.name = String(key);
+      s.updatedAt = toTime(v.updatedAt);
+      out.push(s);
+    });
+    return out;
+  }
+  const byNewest = (a,b) => (num(b.updatedAt)-num(a.updatedAt)) || String(a.name||"").localeCompare(String(b.name||""), "ja");
+
+  /* ---------- data.yaml をそのまま読む（GitHub Pages / ローカルサーバー） ---------- */
+  async function loadRepo(){
+    if (location.protocol === "file:") return [];
+    try {
+      const r = await fetch(new URL(DATA_FILE, location.href), {cache:"no-store"});
+      if (!r.ok) return [];
+      const list = parseShelves(await r.text());
+      list.forEach(s => s._src = "repo");
+      return list;
+    } catch(e){ return []; }
+  }
+
   /* ---------- storage (folder > db > localStorage) ---------- */
   const LS_KEY = "shelf-notes-v1";
-  const IDB_NAME = "shelf-notes", IDB_STORE = "handles", IDB_KEY = "dir";
-  const fsSupported = typeof window.showDirectoryPicker === "function";
-  let idbOK = true, pendingDir = null, dirError = "";
+  const IDB_NAME = "shelf-notes", IDB_STORE = "handles", IDB_KEY = "file";
+  const fsSupported = typeof window.showOpenFilePicker === "function";
+  let idbOK = true, pendingFile = null, fileError = "";
 
-  // the chosen folder handle is kept in IndexedDB so the next visit can resume it
+  // 選んだファイルのハンドルはIndexedDBに置き、次に開いたときも同じファイルを使う
   function idbOpen(){
     return new Promise((res, rej) => {
       let req;
@@ -640,38 +790,23 @@ input[type=file]{display:none}
     } catch(e){ return false; }
   }
 
-  const slugify = s => String(s||"").trim().toLowerCase()
+  const slugify = s => String(s||"").trim()
     .replace(/[\u0000-\u001f\\/:*?"<>|#%&{}$!'`^~\[\]()+=,;@\s.]+/g, "-")
     .replace(/-+/g, "-").replace(/^-+|-+$/g, "").slice(0,60);
-  function fileNameFor(id, name, files){
-    const base = slugify(name) || String(id);
-    const taken = new Set();
-    files.forEach((f, other) => { if (other !== id) taken.add(f.toLowerCase()); });
-    let f = base + ".json", i = 2;
-    while (taken.has(f.toLowerCase())) { f = base + "-" + i + ".json"; i++; }
-    return f;
+  function uniqueKey(base, taken){
+    const b = base || "shelf";
+    let k = b, i = 2;
+    while (taken.has(k.toLowerCase())) { k = b + "-" + i; i++; }
+    return k;
   }
 
   const store = {
     db:null,
-    dir:null,          // FileSystemDirectoryHandle
-    files:new Map(),   // shelf id -> file name in that folder
+    file:null,         // data.yaml の FileSystemFileHandle
     async list(){
-      if (this.dir){
-        const out = [], files = new Map();
-        for await (const [fname, h] of this.dir.entries()){
-          if (h.kind !== "file" || !/\.json$/i.test(fname)) continue;
-          let data = null;
-          try { data = JSON.parse(await (await h.getFile()).text()); } catch(e){ continue; }
-          if (!data || typeof data !== "object" || Array.isArray(data) || Array.isArray(data.shelves)) continue;
-          const s = Object.assign({}, data);
-          if (!s.id) s.id = fname.replace(/\.json$/i, "");
-          if (files.has(s.id)) continue;
-          files.set(s.id, fname);
-          out.push(s);
-        }
-        this.files = files;
-        return out.sort((a,b) => (num(b.updatedAt)-num(a.updatedAt)) || String(a.name||"").localeCompare(String(b.name||""), "ja"));
+      if (this.file){
+        const text = await (await this.file.getFile()).text();
+        return parseShelves(text).sort(byNewest);
       }
       if (this.db){
         const snap = await this.db.collection("shelves").orderBy("updatedAt","desc").get();
@@ -679,93 +814,121 @@ input[type=file]{display:none}
       }
       try { const a = JSON.parse(localStorage.getItem(LS_KEY)||"[]"); return Array.isArray(a)?a.sort((x,y)=>(y.updatedAt||0)-(x.updatedAt||0)):[]; } catch(e){ return []; }
     },
+    // 保存後のid（YAMLのキー）を返す。名前を変えるとキーも変わるため。
     async save(s){
-      if (this.dir){
-        if (!await ensureRW(this.dir)) throw new Error("permission");
-        const prev = this.files.get(s.id);
-        const fname = fileNameFor(s.id, s.name, this.files);
-        const fh = await this.dir.getFileHandle(fname, {create:true});
-        const w = await fh.createWritable();
-        await w.write(JSON.stringify(s, null, 2) + "\n");
-        await w.close();
-        if (prev && prev !== fname){ try { await this.dir.removeEntry(prev); } catch(e){} }
-        this.files.set(s.id, fname);
-        return;
+      if (this.file){
+        if (!await ensureRW(this.file)) throw new Error("permission");
+        const all = await this.list();
+        const i = all.findIndex(x => x.id === s.id);
+        const taken = new Set(all.filter((x,j) => j !== i).map(x => String(x.id).toLowerCase()));
+        const clean = strip(s);
+        clean.id = uniqueKey(slugify(s.name) || String(s.id), taken);
+        if (i >= 0) all[i] = clean; else all.push(clean);
+        await this.write(all);
+        return clean.id;
       }
-      const body = JSON.parse(JSON.stringify(s)); delete body.id;
-      if (this.db){ await this.db.collection("shelves").doc(s.id).set(body); return; }
+      const clean = strip(s), body = strip(s); delete body.id;
+      if (this.db){ await this.db.collection("shelves").doc(s.id).set(body); return s.id; }
       const all = await this.list(); const i = all.findIndex(x=>x.id===s.id);
-      if (i>=0) all[i]=s; else all.push(s);
+      if (i>=0) all[i]=clean; else all.push(clean);
       try { localStorage.setItem(LS_KEY, JSON.stringify(all)); } catch(e){ throw new Error("local"); }
+      return s.id;
     },
     async remove(id){
-      if (this.dir){
-        if (!await ensureRW(this.dir)) throw new Error("permission");
-        const f = this.files.get(id);
-        if (f) await this.dir.removeEntry(f);
-        this.files.delete(id);
+      if (this.file){
+        if (!await ensureRW(this.file)) throw new Error("permission");
+        await this.write((await this.list()).filter(x => x.id !== id));
         return;
       }
       if (this.db){ await this.db.collection("shelves").doc(id).delete(); return; }
       const all = (await this.list()).filter(x=>x.id!==id);
       try { localStorage.setItem(LS_KEY, JSON.stringify(all)); } catch(e){}
+    },
+    async write(all){
+      const w = await this.file.createWritable();
+      await w.write(dumpShelves(all));
+      await w.close();
     }
   };
   async function refreshList(){
-    try { shelves = await store.list(); } catch(e){ shelves = []; toast("一覧を読み込めませんでした"); }
+    let own = [];
+    try { own = await store.list(); } catch(e){ toast("一覧を読み込めませんでした"); }
+    const src = store.file ? "file" : (store.db ? "db" : "local");
+    own.forEach(s => s._src = src);
+    if (store.file){
+      shelves = own;   // ファイルに接続しているときは、それ自体が data.yaml なので重複させない
+    } else {
+      const byId = new Map();
+      repoShelves.forEach(s => byId.set(s.id, s));
+      own.forEach(s => byId.set(s.id, s));   // このブラウザでの編集が data.yaml の内容より優先
+      shelves = [...byId.values()].sort(byNewest);
+    }
+    updateRepoNote();
     renderList();
   }
-
-  /* ---------- folder connection ---------- */
-  function updateDirUI(){
-    const on = !!store.dir;
-    $("status").textContent = on ? "保存先：" + store.dir.name + "/" : (store.db ? "保存先：この図面ノート" : "保存先：このブラウザ");
-    $("dirPick").hidden = !fsSupported;
-    $("dirPick").textContent = on ? "別のフォルダを選ぶ" : "フォルダを選ぶ";
-    $("dirForget").hidden = !on;
-    $("dirGrant").hidden = !(pendingDir && !on);
-    $("dirNote").textContent = on
-      ? `「保存」すると ${store.dir.name}/ の中に、本棚ごとのJSONファイルを書き込みます。ファイル名は本棚の名前から作ります。`
-      : "いまはこのブラウザの中だけに保存しています。フォルダを選ぶと、本棚ごとに1つのJSONファイルとして保存され、Gitで管理できます。";
-    let hint = "";
-    if (dirError) hint = dirError;
-    else if (!fsSupported) hint = "このブラウザはフォルダへの保存に対応していません。Chrome または Edge でお使いください。";
-    else if (pendingDir && !on) hint = `前回のフォルダ（${pendingDir.name}）を覚えています。「フォルダに接続」を押すと続きから使えます。`;
-    else if (on && !idbOK) hint = "この開き方ではフォルダを覚えておけません。次に開いたときは、もう一度フォルダを選んでください。";
-    $("dirHint").textContent = hint;
-    $("dirHint").hidden = !hint;
+  function updateRepoNote(){
+    const el = $("repoNote");
+    const n = (!store.file && repoShelves.length) ? repoShelves.length : 0;
+    const msg = n ? `${DATA_FILE} から ${n} 件を読み込んで表示しています。このページからは書き換えられません（「保存」するとこのブラウザにだけ残ります）。` : "";
+    el.hidden = !msg;
+    el.textContent = msg;
   }
-  async function connectDir(h, remember){
-    store.dir = h; store.files = new Map(); pendingDir = null;
+
+  /* ---------- data.yaml への接続 ---------- */
+  function updateFileUI(){
+    const on = !!store.file;
+    $("status").textContent = on ? "保存先：" + store.file.name : (store.db ? "保存先：この図面ノート" : "保存先：このブラウザ");
+    $("filePick").hidden = !fsSupported;
+    $("filePick").textContent = on ? "別のファイルを選ぶ" : DATA_FILE + " を選ぶ";
+    $("fileForget").hidden = !on;
+    $("fileGrant").hidden = !(pendingFile && !on);
+    $("fileNote").textContent = on
+      ? `「保存」すると ${store.file.name} を書き換えます。本棚の名前がそのままキーになります。`
+      : `いまはこのブラウザの中だけに保存しています。リポジトリの ${DATA_FILE} を選ぶと、そのファイルに直接保存できます。`;
+    let hint = "";
+    if (fileError) hint = fileError;
+    else if (!fsSupported) hint = "このブラウザはファイルへの保存に対応していません。Chrome または Edge でお使いください。";
+    else if (pendingFile && !on) hint = `前回のファイル（${pendingFile.name}）を覚えています。「ファイルに接続」を押すと続きから使えます。`;
+    else if (on && !idbOK) hint = "この開き方ではファイルを覚えておけません。次に開いたときは、もう一度選んでください。";
+    $("fileHint").textContent = hint;
+    $("fileHint").hidden = !hint;
+  }
+  async function connectFile(h, remember){
+    store.file = h; pendingFile = null;
     if (remember) await idbSet(h);
-    updateDirUI();
+    updateFileUI();
     await refreshList();
     toast(h.name + " に保存します");
   }
-  const LOCAL_SERVER_HINT = "このページをファイルとして直接開いているため、フォルダへの保存が使えません。リポジトリのフォルダで `python3 -m http.server 8000` を実行し、http://localhost:8000/ から開いてください。";
-  $("dirPick").addEventListener("click", async () => {
+  const LOCAL_SERVER_HINT = "このページをファイルとして直接開いているため、ファイルへの保存が使えません。リポジトリのフォルダで `python3 -m http.server 8000` を実行し、http://localhost:8000/ から開いてください。";
+  $("filePick").addEventListener("click", async () => {
     let h = null;
-    try { h = await window.showDirectoryPicker({id:"shelf-notes", mode:"readwrite"}); }
-    catch(e){
+    try {
+      const picked = await window.showOpenFilePicker({
+        id:"shelf-notes", multiple:false,
+        types:[{description:"本棚データ（YAML）", accept:{"text/plain":[".yaml",".yml"]}}]
+      });
+      h = picked && picked[0];
+    } catch(e){
       if (e && e.name === "AbortError") return;
-      if (location.protocol === "file:"){ dirError = LOCAL_SERVER_HINT; updateDirUI(); }
-      else toast("フォルダを開けませんでした");
+      if (location.protocol === "file:"){ fileError = LOCAL_SERVER_HINT; updateFileUI(); }
+      else toast("ファイルを開けませんでした");
       return;
     }
-    dirError = "";
+    fileError = "";
     if (!h) return;
-    if (!await ensureRW(h)){ toast("フォルダへの書き込みが許可されませんでした"); return; }
-    await connectDir(h, true);
+    if (!await ensureRW(h)){ toast("ファイルへの書き込みが許可されませんでした"); return; }
+    await connectFile(h, true);
   });
-  $("dirGrant").addEventListener("click", async () => {
-    const h = pendingDir; if (!h) return;
-    if (!await ensureRW(h)){ toast("フォルダへの書き込みが許可されませんでした"); return; }
-    await connectDir(h, true);
+  $("fileGrant").addEventListener("click", async () => {
+    const h = pendingFile; if (!h) return;
+    if (!await ensureRW(h)){ toast("ファイルへの書き込みが許可されませんでした"); return; }
+    await connectFile(h, true);
   });
-  $("dirForget").addEventListener("click", async () => {
-    store.dir = null; store.files = new Map();
+  $("fileForget").addEventListener("click", async () => {
+    store.file = null;
     await idbSet(null);
-    updateDirUI(); await refreshList();
+    updateFileUI(); await refreshList();
     toast("ブラウザ保存に戻しました");
   });
 
@@ -814,8 +977,13 @@ input[type=file]{display:none}
     if (!cur.id) cur.id = newId();
     cur.updatedAt = Date.now();
     const btn = $("saveBtn"); btn.disabled = true;
-    try { await store.save(cur); toast("保存しました"); await refreshList(); }
-    catch(e){ toast(store.dir ? "フォルダに書き込めませんでした" : "保存できませんでした。もう一度お試しください"); }
+    try {
+      const id = await store.save(cur);
+      if (id) cur.id = id;
+      toast(store.file ? "保存しました" : (repoShelves.length ? "このブラウザに保存しました（" + DATA_FILE + " には反映されません）" : "保存しました"));
+      await refreshList();
+    }
+    catch(e){ toast(store.file ? DATA_FILE + " に書き込めませんでした" : "保存できませんでした。もう一度お試しください"); }
     btn.disabled = false;
   });
 
@@ -835,7 +1003,7 @@ input[type=file]{display:none}
         await store.remove(delB.dataset.id);
         if (cur.id===delB.dataset.id) cur.id = null;
         toast("削除しました"); await refreshList();
-      } catch(e){ toast(store.dir ? "フォルダのファイルを削除できませんでした" : "削除できませんでした"); }
+      } catch(e){ toast(store.file ? DATA_FILE + " から削除できませんでした" : "削除できませんでした"); }
     }
   });
 
@@ -919,20 +1087,22 @@ input[type=file]{display:none}
   $("status").textContent = "";
 
   (async () => {
+    const repoP = loadRepo();
     const c = window.claude;
     let db = null;
     try { db = c && c.use ? await c.use("db") : null; } catch(e){ db = null; }
     store.db = db;
-    if (!fsSupported && location.protocol === "file:") dirError = LOCAL_SERVER_HINT;
+    repoShelves = await repoP;
+    if (!fsSupported && location.protocol === "file:") fileError = LOCAL_SERVER_HINT;
     if (fsSupported){
       const h = await idbGet();
       if (h){
         let p = "prompt";
         try { p = await h.queryPermission({mode:"readwrite"}); } catch(e){ p = "prompt"; }
-        if (p === "granted") store.dir = h; else pendingDir = h;
+        if (p === "granted") store.file = h; else pendingFile = h;
       }
     }
-    updateDirUI();
+    updateFileUI();
     await refreshList();
   })();
   (async () => {
