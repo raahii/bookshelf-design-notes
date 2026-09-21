@@ -267,6 +267,7 @@ input[type=file]{display:none}
   let shelves = [];
   let repoShelves = [];   // data.yaml から読み込んだ本棚（読み取り専用）
   let downloads = null;
+  let touched = false;   // 読み込みが終わる前に操作していたら、自動で開かない
   const DATA_FILE = "data.yaml";
   const isShelf = d => !!d && typeof d === "object" && !Array.isArray(d) && "W" in d && "H" in d;
   const strip = s => { const o = Object.assign({}, s); Object.keys(o).forEach(k => { if (k[0] === "_") delete o[k]; }); return o; };
@@ -933,7 +934,10 @@ input[type=file]{display:none}
   });
 
   /* ---------- events ---------- */
+  // 一覧や寸法をさわったら、読み込み完了後の自動オープンはしない
+  document.querySelector("aside").addEventListener("click", () => { touched = true; }, true);
   document.querySelector("aside").addEventListener("input", e => {
+    touched = true;
     if (e.target.dataset && e.target.dataset.ov !== undefined){
       const k = e.target.dataset.ov, v = Math.max(0, num(e.target.value));
       if (k==="top") cur.topOv = v; else if (k==="bot") cur.botOv = v; else cur.shelfOvers[+k] = v;
@@ -970,7 +974,12 @@ input[type=file]{display:none}
   document.querySelectorAll("[data-dir]").forEach(b => b.addEventListener("click", () => { cur.overDir = b.dataset.dir; syncOptions(); renderAll(); }));
   $("modeCu").addEventListener("click", () => { cur.comps = []; setMode("custom"); });
 
-  $("newBtn").addEventListener("click", () => { cur = DEFAULT(); writeForm(); renderAll(); renderList(); $("name").focus(); });
+  function openShelf(s){
+    touched = true;
+    cur = Object.assign(DEFAULT(), JSON.parse(JSON.stringify(s)));
+    writeForm(); renderAll(); renderList();
+  }
+  $("newBtn").addEventListener("click", () => { touched = true; cur = DEFAULT(); writeForm(); renderAll(); renderList(); $("name").focus(); });
 
   $("saveBtn").addEventListener("click", async () => {
     readForm();
@@ -991,8 +1000,7 @@ input[type=file]{display:none}
     const openB = e.target.closest(".open"), delB = e.target.closest(".del");
     if (openB){
       const s = shelves.find(x=>x.id===openB.dataset.id); if (!s) return;
-      cur = Object.assign(DEFAULT(), JSON.parse(JSON.stringify(s)));
-      writeForm(); renderAll(); renderList();
+      openShelf(s);
     } else if (delB){
       if (!delB.classList.contains("confirm")){
         delB.classList.add("confirm"); delB.textContent = "本当に削除";
@@ -1104,6 +1112,7 @@ input[type=file]{display:none}
     }
     updateFileUI();
     await refreshList();
+    if (!touched && !cur.id && shelves.length) openShelf(shelves[0]);
   })();
   (async () => {
     const c = window.claude;
