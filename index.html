@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>本棚の図面ノート</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EEF1EC; --panel:#FFFFFF; --ink:#1E2B38; --muted:#5E6B76; --line:#D3DAD4;
+  --wood:#E6CD9F; --wood-edge:#8A6A3A; --dim:#B8412F; --accent:#2F5D50; --accent-ink:#FFFFFF;
+  --warn-bg:#FBEDE9;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#151A1E; --panel:#1D2429; --ink:#E4EAEE; --muted:#9AA7B0; --line:#324049;
+    --wood:#6E5533; --wood-edge:#D9B77E; --dim:#F07A64; --accent:#86C7B3; --accent-ink:#10231D;
+    --warn-bg:#3A2320;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#151A1E; --panel:#1D2429; --ink:#E4EAEE; --muted:#9AA7B0; --line:#324049;
+  --wood:#6E5533; --wood-edge:#D9B77E; --dim:#F07A64; --accent:#86C7B3; --accent-ink:#10231D;
+  --warn-bg:#3A2320;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:"Zen Kaku Gothic New","Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",sans-serif;
+  font-size:15px; line-height:1.6;
+  background-image:
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size:24px 24px; background-position:-1px -1px;
+  background-attachment:fixed;
+}
+.wrap{max-width:1180px; margin:0 auto; padding:20px 16px 48px}
+header{display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:16px}
+h1{font-size:22px; font-weight:700; margin:0; letter-spacing:.02em}
+.status{font-size:13px; color:var(--muted)}
+.layout{display:grid; grid-template-columns:340px minmax(0,1fr); gap:16px; align-items:start}
+@media (max-width:860px){ .layout{grid-template-columns:1fr} }
+.panel{background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:16px}
+.panel + .panel{margin-top:16px}
+h2{font-size:15px; font-weight:700; margin:0 0 12px}
+label{display:block; font-size:13px; color:var(--muted); margin-bottom:4px}
+.field{margin-bottom:12px}
+.row2{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+.row3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px}
+input[type=text],input[type=number],textarea,select{
+  width:100%; font:inherit; color:var(--ink); background:var(--paper);
+  border:1px solid var(--line); border-radius:4px; padding:7px 9px;
+  font-variant-numeric:tabular-nums;
+}
+textarea{min-height:72px; resize:vertical}
+.unit{position:relative}
+.unit input{padding-right:36px}
+.unit::after{content:"mm"; position:absolute; right:9px; top:50%; transform:translateY(-50%); font-size:12px; color:var(--muted); pointer-events:none}
+.check{display:flex; align-items:center; gap:8px; font-size:14px; color:var(--ink); margin-bottom:8px; cursor:pointer}
+.check input{width:16px; height:16px; accent-color:var(--accent)}
+.seg{display:flex; border:1px solid var(--line); border-radius:4px; overflow:hidden}
+.seg button{flex:1; border:0; background:transparent; color:var(--muted); font:inherit; font-size:13px; padding:6px 8px; cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent); color:var(--accent-ink)}
+.comps{display:grid; gap:6px; margin-top:8px}
+.comp{display:grid; grid-template-columns:84px 1fr; align-items:center; gap:8px; font-size:13px; color:var(--muted)}
+.comp .rest{font-variant-numeric:tabular-nums; color:var(--ink); padding:7px 9px; border:1px dashed var(--line); border-radius:4px}
+button.btn{
+  font:inherit; font-size:14px; border-radius:4px; padding:8px 14px; cursor:pointer;
+  border:1px solid var(--line); background:var(--panel); color:var(--ink);
+}
+button.btn.primary{background:var(--accent); color:var(--accent-ink); border-color:var(--accent); font-weight:700}
+button.btn:disabled{opacity:.5; cursor:default}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+.actions{display:flex; gap:8px; flex-wrap:wrap}
+.list{list-style:none; margin:0; padding:0; max-height:240px; overflow:auto}
+.list li{display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--line)}
+.list li:last-child{border-bottom:0}
+.list .open{flex:1; text-align:left; background:none; border:0; color:var(--ink); font:inherit; padding:9px 2px; cursor:pointer; min-width:0}
+.list .open strong{display:block; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.list .open span{font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums}
+.list li.current .open strong{color:var(--accent); font-weight:700}
+.list .del{background:none; border:0; color:var(--muted); font:inherit; font-size:12px; cursor:pointer; padding:6px}
+.list .del.confirm{color:var(--dim); font-weight:700}
+.empty{font-size:13px; color:var(--muted); margin:0}
+.drawing{overflow-x:auto; background:var(--panel)}
+.drawing svg{display:block; width:100%; height:auto; min-width:520px; max-height:72vh}
+.titlebar{display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:8px}
+.titlebar h2{margin:0; font-size:18px}
+.titlebar .sub{font-size:13px; color:var(--muted); font-variant-numeric:tabular-nums}
+.warn{background:var(--warn-bg); color:var(--dim); border-radius:4px; padding:8px 12px; font-size:13px; margin-bottom:10px}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse; width:100%; font-variant-numeric:tabular-nums; font-size:14px}
+th,td{text-align:right; padding:8px 10px; border-bottom:1px solid var(--line); white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{font-weight:500; color:var(--muted); font-size:13px}
+tfoot td{border-bottom:0; color:var(--muted); font-size:13px}
+.note{font-size:12px; color:var(--muted); margin:8px 0 0}
+.toast{position:fixed; left:50%; bottom:calc(20px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%); background:var(--ink); color:var(--panel); padding:8px 16px; border-radius:4px; font-size:14px; opacity:0; transition:opacity .2s; pointer-events:none}
+.toast.show{opacity:1}
+@media (prefers-reduced-motion: reduce){ .toast{transition:none} }
+input[type=file]{display:none}
+[hidden]{display:none !important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>本棚の図面ノート</h1>
+    <span class="status" id="status">読み込み中…</span>
+  </header>
+
+  <div class="layout">
+    <aside>
+      <section class="panel">
+        <h2>保存した本棚</h2>
+        <ul class="list" id="list"></ul>
+        <p class="empty" id="listEmpty" hidden>まだありません。寸法を入れて「保存」してください。</p>
+        <div class="actions" style="margin-top:12px">
+          <button class="btn" id="newBtn">新しく作る</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>寸法</h2>
+        <div class="field">
+          <label for="name">名前</label>
+          <input type="text" id="name" placeholder="例：リビングの文庫本棚">
+        </div>
+        <div class="row3 field">
+          <div><label for="W">幅</label><div class="unit"><input type="number" id="W" min="1" step="1"></div></div>
+          <div><label for="H">高さ</label><div class="unit"><input type="number" id="H" min="1" step="1"></div></div>
+          <div><label for="D">奥行き</label><div class="unit"><input type="number" id="D" min="1" step="1"></div></div>
+        </div>
+        <div class="row2 field">
+          <div><label for="t">板厚</label><div class="unit"><input type="number" id="t" min="1" step="0.5"></div></div>
+          <div><label for="n">棚板の枚数</label><input type="number" id="n" min="0" max="20" step="1"></div>
+        </div>
+        <div class="field">
+          <label class="check"><input type="checkbox" id="top"> 天板を側板の間に入れる</label>
+        </div>
+        <div class="field">
+          <label>一番下の段</label>
+          <div class="seg" role="group" aria-label="一番下の段">
+            <button type="button" id="botFloor" aria-pressed="true">床をそのまま使う</button>
+            <button type="button" id="botBoard" aria-pressed="false">地板を入れる</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>棚板のはみ出し（側板より長い分）</label>
+          <div class="seg" role="group" aria-label="はみ出しの指定方法">
+            <button type="button" id="ovSame" aria-pressed="true">全部同じ</button>
+            <button type="button" id="ovEach" aria-pressed="false">1枚ずつ指定</button>
+          </div>
+          <div class="unit" id="overWrap" style="margin-top:8px"><input type="number" id="over" min="0" step="1" aria-label="はみ出し"></div>
+          <div class="comps" id="overList" hidden></div>
+          <div id="overOpts" hidden>
+            <div class="seg" role="group" aria-label="はみ出す向き" style="margin-top:8px">
+              <button type="button" data-dir="front" aria-pressed="true">前に出す</button>
+              <button type="button" data-dir="back" aria-pressed="false">後ろに出す</button>
+              <button type="button" data-dir="both" aria-pressed="false">前後に分ける</button>
+            </div>
+            <label class="check" style="margin-top:8px"><input type="checkbox" id="topOver"> <span id="topOverLabel">天板も同じ奥行きにする</span></label>
+            <p class="note" id="overInfo" style="margin:0"></p>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>棚の間隔</label>
+          <div class="seg" role="group" aria-label="棚の間隔">
+            <button type="button" id="modeEq" aria-pressed="true">均等</button>
+            <button type="button" id="modeCu" aria-pressed="false">段ごとに指定</button>
+          </div>
+          <div class="comps" id="comps" hidden></div>
+        </div>
+
+        <div class="field">
+          <label class="check"><input type="checkbox" id="back"> 背板あり（背面に貼る）</label>
+          <div class="unit" id="btWrap" hidden><input type="number" id="bt" min="1" step="0.5" aria-label="背板の厚み"></div>
+        </div>
+
+        <div class="row2 field">
+          <div><label for="brk">L字金具（1枚あたり）</label><input type="number" id="brk" min="0" step="1"></div>
+          <div><label for="material">材料</label><input type="text" id="material" placeholder="例：パイン集成材"></div>
+        </div>
+        <div class="field">
+          <label for="memo">メモ</label>
+          <textarea id="memo" placeholder="購入店、ビスのサイズ、塗装など"></textarea>
+        </div>
+        <div class="actions">
+          <button class="btn primary" id="saveBtn">保存</button>
+        </div>
+      </section>
+    </aside>
+
+    <main>
+      <section class="panel">
+        <div class="titlebar">
+          <h2 id="viewTitle">無題の本棚</h2>
+          <span class="sub" id="viewSub"></span>
+        </div>
+        <div id="warns"></div>
+        <div class="drawing" id="drawing"></div>
+        <div class="actions" style="margin-top:12px" id="exportActions">
+          <button class="btn" id="pngBtn">図をPNGで保存</button>
+          <button class="btn" id="svgBtn">図をSVGで保存</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>木取り表</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>部材</th><th>長さ</th><th>幅</th><th>厚み</th><th>枚数</th></tr></thead>
+            <tbody id="cutBody"></tbody>
+            <tfoot><tr><td colspan="5" id="cutFoot"></td></tr></tfoot>
+          </table>
+        </div>
+        <p class="note">単位はmm。天板・地板・棚板は側板の間に入る長さ（幅 − 板厚×2）です。</p>
+        <div class="actions" style="margin-top:12px">
+          <button class="btn" id="csvBtn">木取り表をCSVで保存</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>保存先</h2>
+        <p class="note" id="dirNote" style="margin:0 0 12px"></p>
+        <div class="actions">
+          <button class="btn" id="dirPick">フォルダを選ぶ</button>
+          <button class="btn" id="dirGrant" hidden>フォルダに接続</button>
+          <button class="btn" id="dirForget" hidden>ブラウザ保存に戻す</button>
+        </div>
+        <p class="note" id="dirHint" style="margin:8px 0 0" hidden></p>
+      </section>
+
+      <section class="panel">
+        <h2>データの管理</h2>
+        <p class="note" style="margin:0 0 12px">保存した本棚をまとめて1つのファイルに書き出せます。書き出したファイルは読み込んで元に戻せます。</p>
+        <div class="actions">
+          <button class="btn" id="exportBtn">すべて書き出す（JSON）</button>
+          <button class="btn" id="importBtn">ファイルから読み込む</button>
+          <input type="file" id="importFile" accept=".json,application/json">
+        </div>
+        <p class="note" id="dlNote" hidden>この表示ではファイルの保存が使えません。</p>
+      </section>
+    </main>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const DEFAULT = () => ({
+    id:null, name:"", W:800, H:1800, D:300, t:18, n:4, top:true, bottom:false,
+    mode:"equal", comps:[], back:false, bt:4, brk:4, material:"", memo:"",
+    over:0, overDir:"front", topOver:true, overMode:"same", shelfOvers:[], topOv:0, botOv:0
+  });
+  let cur = DEFAULT();
+  let shelves = [];
+  let downloads = null;
+
+  /* ---------- helpers ---------- */
+  const num = v => { const x = parseFloat(v); return isFinite(x) ? x : 0; };
+  const fmt = v => { const r = Math.round(v*10)/10; return (Object.is(r,-0)?0:r).toString(); };
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  function toast(msg){ const el=$("toast"); el.textContent=msg; el.classList.add("show"); clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.remove("show"),2200); }
+  const newId = () => "s" + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+
+  /* ---------- geometry ---------- */
+  function calc(s){
+    const warns = [];
+    const W=num(s.W), H=num(s.H), D=num(s.D), t=num(s.t), n=Math.max(0,Math.floor(num(s.n)));
+    const hb = (s.top?1:0) + (s.bottom?1:0) + n;
+    const inW = W - 2*t;
+    const Hin = H - hb*t;
+    const over = Math.max(0, num(s.over));
+    const Ds = D + over;
+    const capD = s.topOver ? Ds : D;
+    let shelfOv, topOv, botOv;
+    if (s.overMode === "each"){
+      const arr = Array.isArray(s.shelfOvers) ? s.shelfOvers : [];
+      shelfOv = Array.from({length:n}, (_,i) => Math.max(0, num(arr[i])));
+      topOv = Math.max(0, num(s.topOv)); botOv = Math.max(0, num(s.botOv));
+    } else {
+      shelfOv = Array(n).fill(over);
+      topOv = botOv = s.topOver ? over : 0;
+    }
+    const used = shelfOv.concat(s.top?[topOv]:[], s.bottom?[botOv]:[]);
+    const maxOv = used.length ? Math.max(0, ...used) : 0;
+    let comps;
+    if (s.mode === "custom"){
+      comps = [];
+      let sum = 0;
+      for (let i=0;i<n;i++){ const c = num(s.comps[i]); comps.push(c); sum += c; }
+      comps.push(Hin - sum);
+    } else {
+      comps = Array(n+1).fill(Hin/(n+1));
+    }
+    if (W<=0||H<=0||D<=0||t<=0) warns.push("幅・高さ・奥行き・板厚は0より大きい数にしてください。");
+    else {
+      if (inW <= 0) warns.push("幅が板厚×2より小さいため、棚板が入りません。");
+      if (Hin <= 0) warns.push("高さが足りず、板を積むと高さを超えてしまいます。");
+      else if (comps.some(c => c < 0)) warns.push("段ごとの高さの合計が大きすぎます。一番上の段がマイナスになっています。");
+      if (s.back && maxOv>0 && s.overDir!=="front") warns.push("背板ありで棚板を後ろにはみ出させると、背板と棚板がぶつかります。");
+    }
+    return {W,H,D,t,n,hb,inW,Hin,comps,warns,over,Ds,capD,shelfOv,topOv,botOv,maxOv};
+  }
+
+  function boardsFromBottom(g, s){
+    // returns horizontal boards [{y0,y1,kind}] and compartments [{y0,y1,h}] in SVG coords (y down)
+    const boards=[], spaces=[];
+    let cur = g.H;
+    if (s.top === undefined) s.top = true;
+    if (s.bottom){ boards.push({y0:cur-g.t, y1:cur, kind:"地板"}); cur -= g.t; }
+    for (let i=0;i<=g.n;i++){
+      const h = Math.max(0, g.comps[i]);
+      spaces.push({y0:cur-h, y1:cur, h:g.comps[i]});
+      cur -= h;
+      if (i < g.n){ boards.push({y0:cur-g.t, y1:cur, kind:"棚板", idx:i}); cur -= g.t; }
+    }
+    if (s.top){ boards.push({y0:0, y1:g.t, kind:"天板"}); }
+    return {boards, spaces};
+  }
+
+  /* ---------- drawing ---------- */
+  function palette(forExport){
+    if (forExport) return {bg:"#FFFFFF", ink:"#1E2B38", muted:"#5E6B76", wood:"#E6CD9F", edge:"#8A6A3A", dim:"#B8412F", font:"'Hiragino Sans','Yu Gothic','Meiryo',sans-serif"};
+    const cs = getComputedStyle(document.documentElement);
+    const v = k => cs.getPropertyValue(k).trim();
+    return {bg:v("--panel"), ink:v("--ink"), muted:v("--muted"), wood:v("--wood"), edge:v("--wood-edge"), dim:v("--dim"), font:"'Zen Kaku Gothic New','Hiragino Sans','Yu Gothic','Meiryo',sans-serif"};
+  }
+
+  function buildSVG(s, forExport){
+    const g = calc(s);
+    const P = palette(forExport);
+    const W=Math.max(g.W,1), H=Math.max(g.H,1), D=Math.max(g.D,1), t=Math.max(g.t,0);
+    const bt = s.back ? Math.max(num(s.bt),0) : 0;
+    // side view: x positions relative to side panel front
+    const each = s.overMode === "each";
+    const ov = each ? 0 : g.over;
+    const offOf = o => s.overDir==="back" ? 0 : (s.overDir==="both" ? -o/2 : -o); // board front relative to panel front
+    const fOff = offOf(g.maxOv);
+    const sLeft = Math.min(0, fOff);                 // leftmost extent relative to panel front
+    const sRight = Math.max(D + bt, fOff + D + g.maxOv);
+    const sideW = sRight - sLeft;
+    const S = Math.max(W + sideW, H);
+    const fs = S*0.024;
+    const gap = fs*2.4;          // distance from object to dimension line
+    const between = fs*9;        // space between front and side views
+    const sideX = W + between + ((s.overMode==="each" && s.overDir!=="back") ? fs*3 : 0);
+    const minX = -gap - fs*2.6, minY = -gap*(ov>0?2:1) - fs*2.6;
+    const maxX = sideX + sideW + fs*(s.overMode==="each" && s.overDir==="back" ? 6 : 3);
+    const maxY = H + gap + fs*5.2;
+    const vb = [minX, minY, maxX-minX, maxY-minY];
+    const sw = 'vector-effect="non-scaling-stroke"';
+    const out = [];
+    const tick = fs*0.45;
+
+    function dimH(x1,x2,y,label,ext0,ext1){ // horizontal dimension at y; ext = y of object edges
+      let o = `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="${P.dim}" stroke-width="1" ${sw}/>`;
+      o += `<line x1="${x1-tick}" y1="${y+tick}" x2="${x1+tick}" y2="${y-tick}" stroke="${P.dim}" stroke-width="1.4" ${sw}/>`;
+      o += `<line x1="${x2-tick}" y1="${y+tick}" x2="${x2+tick}" y2="${y-tick}" stroke="${P.dim}" stroke-width="1.4" ${sw}/>`;
+      if (ext0!==undefined){
+        o += `<line x1="${x1}" y1="${ext0}" x2="${x1}" y2="${y + (y>ext0?tick:-tick)}" stroke="${P.dim}" stroke-width=".6" opacity=".6" ${sw}/>`;
+        o += `<line x1="${x2}" y1="${ext1}" x2="${x2}" y2="${y + (y>ext1?tick:-tick)}" stroke="${P.dim}" stroke-width=".6" opacity=".6" ${sw}/>`;
+      }
+      o += `<text x="${(x1+x2)/2}" y="${y - fs*0.45}" font-size="${fs}" text-anchor="middle" fill="${P.dim}">${esc(label)}</text>`;
+      return o;
+    }
+    function dimV(y1,y2,x,label,ext0,ext1,side){ // vertical dimension at x; side: -1 text left, 1 text right
+      let o = `<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="${P.dim}" stroke-width="1" ${sw}/>`;
+      o += `<line x1="${x-tick}" y1="${y1+tick}" x2="${x+tick}" y2="${y1-tick}" stroke="${P.dim}" stroke-width="1.4" ${sw}/>`;
+      o += `<line x1="${x-tick}" y1="${y2+tick}" x2="${x+tick}" y2="${y2-tick}" stroke="${P.dim}" stroke-width="1.4" ${sw}/>`;
+      if (ext0!==undefined){
+        o += `<line x1="${ext0}" y1="${y1}" x2="${x + (x>ext0?tick:-tick)}" y2="${y1}" stroke="${P.dim}" stroke-width=".6" opacity=".6" ${sw}/>`;
+        o += `<line x1="${ext1}" y1="${y2}" x2="${x + (x>ext1?tick:-tick)}" y2="${y2}" stroke="${P.dim}" stroke-width=".6" opacity=".6" ${sw}/>`;
+      }
+      const tx = x + side*fs*0.55, ty = (y1+y2)/2;
+      o += `<text x="${tx}" y="${ty}" font-size="${fs}" text-anchor="middle" fill="${P.dim}" transform="rotate(-90 ${tx} ${ty})" dy="${side<0?0:fs*0.75}">${esc(label)}</text>`;
+      return o;
+    }
+
+    out.push(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb.join(" ")}" font-family="${P.font}" role="img" aria-label="本棚の正面図と側面図">`);
+    out.push(`<rect x="${minX}" y="${minY}" width="${vb[2]}" height="${vb[3]}" fill="${P.bg}"/>`);
+
+    const {boards, spaces} = boardsFromBottom(g, s);
+    const floor = (x1,x2) => {
+      let o = `<line x1="${x1}" y1="${H}" x2="${x2}" y2="${H}" stroke="${P.muted}" stroke-width="1.4" ${sw}/>`;
+      const step = fs*0.9;
+      for (let x=x1+step*0.5; x<x2; x+=step) o += `<line x1="${x}" y1="${H}" x2="${x-step*0.6}" y2="${H+step*0.6}" stroke="${P.muted}" stroke-width=".7" opacity=".7" ${sw}/>`;
+      return o;
+    };
+    const board = (x,y,w,h) => `<rect x="${x}" y="${y}" width="${Math.max(w,0)}" height="${Math.max(h,0)}" fill="${P.wood}" stroke="${P.edge}" stroke-width="1" ${sw}/>`;
+
+    // ---- front view ----
+    if (bt>0) out.push(`<rect x="${t}" y="0" width="${Math.max(W-2*t,0)}" height="${H}" fill="${P.wood}" opacity=".35"/>`);
+    out.push(board(0,0,t,H));
+    out.push(board(W-t,0,t,H));
+    boards.forEach(b => out.push(board(t,b.y0,W-2*t,b.y1-b.y0)));
+    // brackets hint: small L marks at each board end
+    if (num(s.brk)>0 && t>0){
+      const L = Math.min(fs*1.2, (W-2*t)/6);
+      boards.forEach(b => {
+        // L-brackets sit under each board (supporting from below); a floor-level 地板 gets them on top
+        const under = b.kind !== "地板";
+        const y = under ? b.y1 : b.y0;
+        const dir = under ? 1 : -1;
+        out.push(`<path d="M${t} ${y+dir*L} L${t} ${y} M${t} ${y} L${t+L} ${y}" stroke="${P.muted}" stroke-width="1.4" fill="none" ${sw}/>`);
+        out.push(`<path d="M${W-t} ${y+dir*L} L${W-t} ${y} M${W-t} ${y} L${W-t-L} ${y}" stroke="${P.muted}" stroke-width="1.4" fill="none" ${sw}/>`);
+      });
+    }
+    // dimensions: overall width (bottom), interior width (top), overall height (left), clear heights (right)
+    out.push(dimH(0, W, H+gap, fmt(g.W), H, H));
+    if (g.inW>0) out.push(dimH(t, W-t, -gap, "内寸 " + fmt(g.inW), 0, 0));
+    out.push(dimV(0, H, -gap, fmt(g.H), 0, 0, -1));
+    spaces.forEach(sp => {
+      if (sp.y1 - sp.y0 <= 0) return;
+      out.push(dimV(sp.y0, sp.y1, W+gap, fmt(sp.h), W-t, W-t, 1));
+    });
+    if (!s.bottom){
+      out.push(floor(-fs*1.5, W+fs*1.5));
+      out.push(`<text x="${W/2}" y="${H - fs*0.6}" font-size="${fs*0.75}" text-anchor="middle" fill="${P.muted}">床</text>`);
+    }
+    out.push(`<text x="${W/2}" y="${H+gap+fs*3.4}" font-size="${fs*1.05}" text-anchor="middle" fill="${P.ink}" font-weight="700">正面図</text>`);
+
+    // ---- side view ----
+    const px = sideX - sLeft;            // side panel front x
+    const hx = px + offOf(ov);           // horizontal boards front x (same mode)
+    const ovOf = b => b.kind==="棚板" ? g.shelfOv[b.idx] : (b.kind==="天板" ? g.topOv : g.botOv);
+    // horizontal boards drawn first (the part inside the panel gets covered)
+    boards.forEach(b => {
+      const o = ovOf(b);
+      out.push(board(px + offOf(o), b.y0, D + o, b.y1-b.y0));
+    });
+    out.push(board(px, 0, D, H));
+    boards.forEach(b => {
+      out.push(`<line x1="${px}" y1="${b.y0}" x2="${px+D}" y2="${b.y0}" stroke="${P.edge}" stroke-width="1" stroke-dasharray="6 4" ${sw}/>`);
+      out.push(`<line x1="${px}" y1="${b.y1}" x2="${px+D}" y2="${b.y1}" stroke="${P.edge}" stroke-width="1" stroke-dasharray="6 4" ${sw}/>`);
+    });
+    if (bt>0) out.push(board(px+D, 0, bt, H));
+    if (!s.bottom) out.push(floor(sideX - fs*1.5, sideX + sideW + fs*1.5));
+    out.push(dimH(px, px+D, H+gap, "側板 " + fmt(g.D), H, H));
+    if (ov>0){
+      const shelves = boards.filter(b=>b.kind==="棚板");
+      const refY = shelves.length ? shelves[shelves.length-1].y0 : 0;
+      out.push(dimH(hx, hx+g.Ds, -gap, "棚板 " + fmt(g.Ds), refY, refY));
+      const oa = s.overDir==="back" ? [px+D, px+D+ov] : (s.overDir==="both" ? [hx, px] : [hx, px]);
+      out.push(dimH(oa[0], oa[1], -gap*2, "はみ出し " + fmt(s.overDir==="both" ? ov/2 : ov), refY, refY));
+    }
+    if (each){
+      boards.forEach(b => {
+        const o = ovOf(b); if (o<=0) return;
+        const y = (b.y0+b.y1)/2 + fs*0.35;
+        if (s.overDir==="back") out.push(`<text x="${px+D+o+fs*0.4}" y="${y}" font-size="${fs*0.8}" fill="${P.dim}">+${fmt(o)}</text>`);
+        else out.push(`<text x="${px+offOf(o)-fs*0.4}" y="${y}" font-size="${fs*0.8}" text-anchor="end" fill="${P.dim}">+${fmt(s.overDir==="both"?o/2:o)}</text>`);
+      });
+    }
+    if (bt>0) out.push(`<text x="${px+D+bt+fs*0.4}" y="${fs}" font-size="${fs*0.8}" fill="${P.muted}">背板 ${fmt(num(s.bt))}</text>`);
+    out.push(`<text x="${sideX+sideW/2}" y="${H+gap+fs*3.4}" font-size="${fs*1.05}" text-anchor="middle" fill="${P.ink}" font-weight="700">側面図</text>`);
+
+    out.push(`<text x="${minX+fs*0.6}" y="${maxY-fs*0.7}" font-size="${fs*0.75}" fill="${P.muted}">単位 mm ／ 板厚 ${fmt(g.t)}${bt>0?"・背板 "+fmt(num(s.bt)):""}${s.name?" ／ "+esc(s.name):""}</text>`);
+    out.push(`</svg>`);
+    return out.join("");
+  }
+
+  /* ---------- cut list ---------- */
+  function cutList(s){
+    const g = calc(s);
+    const rows = [];
+    rows.push({name:"側板", L:g.H, w:g.D, th:g.t, q:2});
+    const tb = (s.top?1:0)+(s.bottom?1:0);
+    const tD = g.D + g.topOv, bD = g.D + g.botOv;
+    if (s.top && s.bottom && tD===bD) rows.push({name:"天板・地板", L:g.inW, w:tD, th:g.t, q:2});
+    else {
+      if (s.top) rows.push({name:"天板", L:g.inW, w:tD, th:g.t, q:1});
+      if (s.bottom) rows.push({name:"地板", L:g.inW, w:bD, th:g.t, q:1});
+    }
+    const groups = new Map();
+    g.shelfOv.forEach(o => { const d = g.D + o; groups.set(d, (groups.get(d)||0) + 1); });
+    [...groups.entries()].sort((a,b)=>a[0]-b[0]).forEach(([d,q]) => rows.push({name:"棚板", L:g.inW, w:d, th:g.t, q}));
+    if (s.back) rows.push({name:"背板", L:g.H, w:g.W, th:num(s.bt), q:1});
+    const hw = Math.max(0,Math.floor(num(s.brk))) * g.hb;
+    const area = rows.filter(r=>r.name!=="背板").reduce((a,r)=>a + Math.max(r.L,0)*Math.max(r.w,0)*r.q, 0)/1e6;
+    return {rows, hw, area, g};
+  }
+
+  /* ---------- render ---------- */
+  function readForm(){
+    cur.name = $("name").value.trim();
+    ["W","H","D","t","bt"].forEach(k => cur[k] = num($(k).value));
+    cur.n = Math.min(20, Math.max(0, Math.floor(num($("n").value))));
+    cur.brk = Math.max(0, Math.floor(num($("brk").value)));
+    cur.top = $("top").checked; cur.back = $("back").checked; cur.topOver = $("topOver").checked;
+    cur.over = Math.max(0, num($("over").value));
+    cur.material = $("material").value; cur.memo = $("memo").value;
+  }
+  function writeForm(){
+    $("name").value = cur.name||"";
+    ["W","H","D","t","n","bt","brk"].forEach(k => $(k).value = cur[k]);
+    $("top").checked = !!cur.top; $("back").checked = !!cur.back; $("topOver").checked = !!cur.topOver;
+    $("over").value = cur.over;
+    $("material").value = cur.material||""; $("memo").value = cur.memo||"";
+    setMode(cur.mode, true);
+    syncOptions();
+    renderOvers();
+  }
+  function syncOptions(){
+    $("botFloor").setAttribute("aria-pressed", !cur.bottom);
+    $("botBoard").setAttribute("aria-pressed", !!cur.bottom);
+    document.querySelectorAll("[data-dir]").forEach(b => b.setAttribute("aria-pressed", b.dataset.dir===cur.overDir));
+    const ov = Math.max(0, num(cur.over));
+    const each = cur.overMode === "each";
+    $("ovSame").setAttribute("aria-pressed", !each);
+    $("ovEach").setAttribute("aria-pressed", each);
+    $("overWrap").hidden = each;
+    $("overOpts").hidden = !each && ov<=0;
+    $("topOverLabel").textContent = cur.top && cur.bottom ? "天板・地板も同じ奥行きにする" : (cur.bottom ? "地板も同じ奥行きにする" : "天板も同じ奥行きにする");
+    $("topOver").closest("label").hidden = each || (!cur.top && !cur.bottom);
+    const g = calc(cur);
+    $("overInfo").textContent = !each && ov>0 ? `棚板の奥行き ${fmt(g.Ds)} mm` : "";
+  }
+  function renderOvers(){
+    const box = $("overList");
+    box.hidden = cur.overMode !== "each";
+    if (box.hidden) return;
+    const n = Math.max(0, Math.floor(num(cur.n)));
+    if (!Array.isArray(cur.shelfOvers)) cur.shelfOvers = [];
+    while (cur.shelfOvers.length < n) cur.shelfOvers.push(cur.shelfOvers.length ? cur.shelfOvers[cur.shelfOvers.length-1] : num(cur.over));
+    cur.shelfOvers.length = n;
+    const D = num(cur.D);
+    const row = (label, key, v) => `<div class="comp"><span>${label}</span><div class="unit"><input type="number" min="0" step="1" data-ov="${key}" value="${v}" aria-label="${label}のはみ出し"></div></div>`;
+    let html = "";
+    if (cur.top) html += row("天板", "top", num(cur.topOv));
+    for (let i=n-1;i>=0;i--) html += row(`棚板${i+1}`, i, cur.shelfOvers[i]);
+    if (cur.bottom) html += row("地板", "bot", num(cur.botOv));
+    html += `<p class="note" style="margin:2px 0 0">棚板は下から数えた番号です。0なら側板と同じ奥行き（${fmt(D)} mm）。</p>`;
+    box.innerHTML = html;
+  }
+  function syncComps(){
+    const g = calc(cur);
+    if (!Array.isArray(cur.comps)) cur.comps = [];
+    // keep length n; fill with equal spacing
+    const eq = g.Hin/(g.n+1);
+    while (cur.comps.length < g.n) cur.comps.push(Math.round(eq));
+    cur.comps.length = g.n;
+  }
+  function renderComps(){
+    const box = $("comps");
+    box.hidden = cur.mode !== "custom";
+    if (box.hidden) return;
+    syncComps();
+    const g = calc(cur);
+    let html = "";
+    for (let i=0;i<g.n;i++){
+      html += `<div class="comp"><span>${i+1}段目${i===0&&!cur.bottom?"（床）":""}</span><div class="unit"><input type="number" min="0" step="1" data-i="${i}" value="${cur.comps[i]}" aria-label="下から${i+1}段目の内寸高さ"></div></div>`;
+    }
+    html += `<div class="comp"><span>${g.n+1}段目${g.n===0&&!cur.bottom?"（床）":""}</span><div class="rest">残り ${fmt(g.comps[g.n])} mm</div></div>`;
+    html += `<p class="note" style="margin:2px 0 0">下から数えた各段の内寸高さ。一番上の段は残りから自動で決まります。</p>`;
+    box.innerHTML = html;
+  }
+  function updateRest(){
+    const el = $("comps").querySelector(".rest");
+    if (el){ const g = calc(cur); el.textContent = "残り " + fmt(g.comps[g.n]) + " mm"; }
+  }
+  function renderAll(){
+    const g = calc(cur);
+    $("viewTitle").textContent = cur.name || "無題の本棚";
+    $("viewSub").textContent = `幅${fmt(g.W)} × 高さ${fmt(g.H)} × 奥行き${fmt(g.D)} mm`;
+    $("warns").innerHTML = g.warns.map(w => `<div class="warn">${esc(w)}</div>`).join("");
+    $("drawing").innerHTML = buildSVG(cur, false);
+    const c = cutList(cur);
+    $("cutBody").innerHTML = c.rows.map(r => `<tr><td>${esc(r.name)}</td><td>${fmt(r.L)}</td><td>${fmt(r.w)}</td><td>${fmt(r.th)}</td><td>${r.q}</td></tr>`).join("")
+      + (c.hw>0 ? `<tr><td>L字金具</td><td></td><td></td><td></td><td>${c.hw}</td></tr>` : "");
+    $("cutFoot").textContent = `板の合計面積（背板を除く）約 ${(Math.round(c.area*100)/100).toFixed(2)} m²` + (cur.material ? `　材料：${cur.material}` : "");
+  }
+  function renderList(){
+    const ul = $("list");
+    $("listEmpty").hidden = shelves.length>0;
+    ul.innerHTML = shelves.map(s => `<li class="${s.id===cur.id?"current":""}">
+      <button class="open" data-id="${esc(s.id)}"><strong>${esc(s.name||"無題の本棚")}</strong><span>${fmt(num(s.W))}×${fmt(num(s.H))}×${fmt(num(s.D))}</span></button>
+      <button class="del" data-id="${esc(s.id)}" aria-label="${esc(s.name||"無題の本棚")}を削除">削除</button></li>`).join("");
+  }
+
+  function setMode(m, silent){
+    cur.mode = m;
+    $("modeEq").setAttribute("aria-pressed", m==="equal");
+    $("modeCu").setAttribute("aria-pressed", m==="custom");
+    $("btWrap").hidden = !cur.back;
+    renderComps();
+    if (!silent) renderAll();
+  }
+
+  /* ---------- storage (folder > db > localStorage) ---------- */
+  const LS_KEY = "shelf-notes-v1";
+  const IDB_NAME = "shelf-notes", IDB_STORE = "handles", IDB_KEY = "dir";
+  const fsSupported = typeof window.showDirectoryPicker === "function";
+  let idbOK = true, pendingDir = null, dirError = "";
+
+  // the chosen folder handle is kept in IndexedDB so the next visit can resume it
+  function idbOpen(){
+    return new Promise((res, rej) => {
+      let req;
+      try { req = indexedDB.open(IDB_NAME, 1); } catch(e){ rej(e); return; }
+      req.onupgradeneeded = () => { req.result.createObjectStore(IDB_STORE); };
+      req.onsuccess = () => res(req.result);
+      req.onerror = () => rej(req.error);
+    });
+  }
+  async function idbGet(){
+    try {
+      const db = await idbOpen();
+      return await new Promise((res, rej) => {
+        const r = db.transaction(IDB_STORE).objectStore(IDB_STORE).get(IDB_KEY);
+        r.onsuccess = () => res(r.result || null);
+        r.onerror = () => rej(r.error);
+      });
+    } catch(e){ idbOK = false; return null; }
+  }
+  async function idbSet(v){
+    try {
+      const db = await idbOpen();
+      await new Promise((res, rej) => {
+        const tx = db.transaction(IDB_STORE, "readwrite"), os = tx.objectStore(IDB_STORE);
+        if (v) os.put(v, IDB_KEY); else os.delete(IDB_KEY);
+        tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+      });
+    } catch(e){ idbOK = false; }
+  }
+  async function ensureRW(h){
+    if (typeof h.queryPermission !== "function") return true;
+    try {
+      if (await h.queryPermission({mode:"readwrite"}) === "granted") return true;
+      return await h.requestPermission({mode:"readwrite"}) === "granted";
+    } catch(e){ return false; }
+  }
+
+  const slugify = s => String(s||"").trim().toLowerCase()
+    .replace(/[\u0000-\u001f\\/:*?"<>|#%&{}$!'`^~\[\]()+=,;@\s.]+/g, "-")
+    .replace(/-+/g, "-").replace(/^-+|-+$/g, "").slice(0,60);
+  function fileNameFor(id, name, files){
+    const base = slugify(name) || String(id);
+    const taken = new Set();
+    files.forEach((f, other) => { if (other !== id) taken.add(f.toLowerCase()); });
+    let f = base + ".json", i = 2;
+    while (taken.has(f.toLowerCase())) { f = base + "-" + i + ".json"; i++; }
+    return f;
+  }
+
+  const store = {
+    db:null,
+    dir:null,          // FileSystemDirectoryHandle
+    files:new Map(),   // shelf id -> file name in that folder
+    async list(){
+      if (this.dir){
+        const out = [], files = new Map();
+        for await (const [fname, h] of this.dir.entries()){
+          if (h.kind !== "file" || !/\.json$/i.test(fname)) continue;
+          let data = null;
+          try { data = JSON.parse(await (await h.getFile()).text()); } catch(e){ continue; }
+          if (!data || typeof data !== "object" || Array.isArray(data) || Array.isArray(data.shelves)) continue;
+          const s = Object.assign({}, data);
+          if (!s.id) s.id = fname.replace(/\.json$/i, "");
+          if (files.has(s.id)) continue;
+          files.set(s.id, fname);
+          out.push(s);
+        }
+        this.files = files;
+        return out.sort((a,b) => (num(b.updatedAt)-num(a.updatedAt)) || String(a.name||"").localeCompare(String(b.name||""), "ja"));
+      }
+      if (this.db){
+        const snap = await this.db.collection("shelves").orderBy("updatedAt","desc").get();
+        return snap.docs.map(d => ({...d.data(), id:d.id}));
+      }
+      try { const a = JSON.parse(localStorage.getItem(LS_KEY)||"[]"); return Array.isArray(a)?a.sort((x,y)=>(y.updatedAt||0)-(x.updatedAt||0)):[]; } catch(e){ return []; }
+    },
+    async save(s){
+      if (this.dir){
+        if (!await ensureRW(this.dir)) throw new Error("permission");
+        const prev = this.files.get(s.id);
+        const fname = fileNameFor(s.id, s.name, this.files);
+        const fh = await this.dir.getFileHandle(fname, {create:true});
+        const w = await fh.createWritable();
+        await w.write(JSON.stringify(s, null, 2) + "\n");
+        await w.close();
+        if (prev && prev !== fname){ try { await this.dir.removeEntry(prev); } catch(e){} }
+        this.files.set(s.id, fname);
+        return;
+      }
+      const body = JSON.parse(JSON.stringify(s)); delete body.id;
+      if (this.db){ await this.db.collection("shelves").doc(s.id).set(body); return; }
+      const all = await this.list(); const i = all.findIndex(x=>x.id===s.id);
+      if (i>=0) all[i]=s; else all.push(s);
+      try { localStorage.setItem(LS_KEY, JSON.stringify(all)); } catch(e){ throw new Error("local"); }
+    },
+    async remove(id){
+      if (this.dir){
+        if (!await ensureRW(this.dir)) throw new Error("permission");
+        const f = this.files.get(id);
+        if (f) await this.dir.removeEntry(f);
+        this.files.delete(id);
+        return;
+      }
+      if (this.db){ await this.db.collection("shelves").doc(id).delete(); return; }
+      const all = (await this.list()).filter(x=>x.id!==id);
+      try { localStorage.setItem(LS_KEY, JSON.stringify(all)); } catch(e){}
+    }
+  };
+  async function refreshList(){
+    try { shelves = await store.list(); } catch(e){ shelves = []; toast("一覧を読み込めませんでした"); }
+    renderList();
+  }
+
+  /* ---------- folder connection ---------- */
+  function updateDirUI(){
+    const on = !!store.dir;
+    $("status").textContent = on ? "保存先：" + store.dir.name + "/" : (store.db ? "保存先：この図面ノート" : "保存先：このブラウザ");
+    $("dirPick").hidden = !fsSupported;
+    $("dirPick").textContent = on ? "別のフォルダを選ぶ" : "フォルダを選ぶ";
+    $("dirForget").hidden = !on;
+    $("dirGrant").hidden = !(pendingDir && !on);
+    $("dirNote").textContent = on
+      ? `「保存」すると ${store.dir.name}/ の中に、本棚ごとのJSONファイルを書き込みます。ファイル名は本棚の名前から作ります。`
+      : "いまはこのブラウザの中だけに保存しています。フォルダを選ぶと、本棚ごとに1つのJSONファイルとして保存され、Gitで管理できます。";
+    let hint = "";
+    if (dirError) hint = dirError;
+    else if (!fsSupported) hint = "このブラウザはフォルダへの保存に対応していません。Chrome または Edge でお使いください。";
+    else if (pendingDir && !on) hint = `前回のフォルダ（${pendingDir.name}）を覚えています。「フォルダに接続」を押すと続きから使えます。`;
+    else if (on && !idbOK) hint = "この開き方ではフォルダを覚えておけません。次に開いたときは、もう一度フォルダを選んでください。";
+    $("dirHint").textContent = hint;
+    $("dirHint").hidden = !hint;
+  }
+  async function connectDir(h, remember){
+    store.dir = h; store.files = new Map(); pendingDir = null;
+    if (remember) await idbSet(h);
+    updateDirUI();
+    await refreshList();
+    toast(h.name + " に保存します");
+  }
+  const LOCAL_SERVER_HINT = "このページをファイルとして直接開いているため、フォルダへの保存が使えません。リポジトリのフォルダで `python3 -m http.server 8000` を実行し、http://localhost:8000/ から開いてください。";
+  $("dirPick").addEventListener("click", async () => {
+    let h = null;
+    try { h = await window.showDirectoryPicker({id:"shelf-notes", mode:"readwrite"}); }
+    catch(e){
+      if (e && e.name === "AbortError") return;
+      if (location.protocol === "file:"){ dirError = LOCAL_SERVER_HINT; updateDirUI(); }
+      else toast("フォルダを開けませんでした");
+      return;
+    }
+    dirError = "";
+    if (!h) return;
+    if (!await ensureRW(h)){ toast("フォルダへの書き込みが許可されませんでした"); return; }
+    await connectDir(h, true);
+  });
+  $("dirGrant").addEventListener("click", async () => {
+    const h = pendingDir; if (!h) return;
+    if (!await ensureRW(h)){ toast("フォルダへの書き込みが許可されませんでした"); return; }
+    await connectDir(h, true);
+  });
+  $("dirForget").addEventListener("click", async () => {
+    store.dir = null; store.files = new Map();
+    await idbSet(null);
+    updateDirUI(); await refreshList();
+    toast("ブラウザ保存に戻しました");
+  });
+
+  /* ---------- events ---------- */
+  document.querySelector("aside").addEventListener("input", e => {
+    if (e.target.dataset && e.target.dataset.ov !== undefined){
+      const k = e.target.dataset.ov, v = Math.max(0, num(e.target.value));
+      if (k==="top") cur.topOv = v; else if (k==="bot") cur.botOv = v; else cur.shelfOvers[+k] = v;
+      renderAll(); return;
+    }
+    if (e.target.dataset && e.target.dataset.i !== undefined){
+      cur.comps[+e.target.dataset.i] = num(e.target.value);
+      updateRest(); renderAll(); return;
+    }
+    const prevN = cur.n;
+    readForm();
+    $("btWrap").hidden = !cur.back;
+    syncOptions();
+    if (cur.overMode==="each" && (cur.n!==prevN || e.target.id==="top" || e.target.id==="D")) renderOvers();
+    if (cur.mode==="custom" && (cur.n!==prevN || ["H","t","top"].includes(e.target.id))) {
+      if (cur.n!==prevN) renderComps(); else updateRest();
+    }
+    renderAll();
+  });
+  $("modeEq").addEventListener("click", () => setMode("equal"));
+  const setBottom = v => { cur.bottom = v; syncOptions(); renderOvers(); if (cur.mode==="custom") renderComps(); renderAll(); };
+  const setOverMode = m => {
+    if (m==="each" && cur.overMode!=="each"){
+      const n = Math.max(0, Math.floor(num(cur.n))), o = num(cur.over);
+      cur.shelfOvers = Array(n).fill(o);
+      cur.topOv = cur.botOv = cur.topOver ? o : 0;
+    }
+    cur.overMode = m; syncOptions(); renderOvers(); renderAll();
+  };
+  $("ovSame").addEventListener("click", () => setOverMode("same"));
+  $("ovEach").addEventListener("click", () => setOverMode("each"));
+  $("botFloor").addEventListener("click", () => setBottom(false));
+  $("botBoard").addEventListener("click", () => setBottom(true));
+  document.querySelectorAll("[data-dir]").forEach(b => b.addEventListener("click", () => { cur.overDir = b.dataset.dir; syncOptions(); renderAll(); }));
+  $("modeCu").addEventListener("click", () => { cur.comps = []; setMode("custom"); });
+
+  $("newBtn").addEventListener("click", () => { cur = DEFAULT(); writeForm(); renderAll(); renderList(); $("name").focus(); });
+
+  $("saveBtn").addEventListener("click", async () => {
+    readForm();
+    if (!cur.id) cur.id = newId();
+    cur.updatedAt = Date.now();
+    const btn = $("saveBtn"); btn.disabled = true;
+    try { await store.save(cur); toast("保存しました"); await refreshList(); }
+    catch(e){ toast(store.dir ? "フォルダに書き込めませんでした" : "保存できませんでした。もう一度お試しください"); }
+    btn.disabled = false;
+  });
+
+  $("list").addEventListener("click", async e => {
+    const openB = e.target.closest(".open"), delB = e.target.closest(".del");
+    if (openB){
+      const s = shelves.find(x=>x.id===openB.dataset.id); if (!s) return;
+      cur = Object.assign(DEFAULT(), JSON.parse(JSON.stringify(s)));
+      writeForm(); renderAll(); renderList();
+    } else if (delB){
+      if (!delB.classList.contains("confirm")){
+        delB.classList.add("confirm"); delB.textContent = "本当に削除";
+        setTimeout(()=>{ if (delB.isConnected){ delB.classList.remove("confirm"); delB.textContent="削除"; } }, 3000);
+        return;
+      }
+      try {
+        await store.remove(delB.dataset.id);
+        if (cur.id===delB.dataset.id) cur.id = null;
+        toast("削除しました"); await refreshList();
+      } catch(e){ toast(store.dir ? "フォルダのファイルを削除できませんでした" : "削除できませんでした"); }
+    }
+  });
+
+  const safeName = () => (cur.name||"本棚").replace(/[\\/:*?"<>|]/g,"_").slice(0,60);
+  async function offer(filename, data){
+    if (!downloads){
+      if (window.claude){ toast("この表示ではファイルを保存できません"); return; }
+      // standalone (opened as a local file): plain browser download
+      const blob = data instanceof Blob ? data : new Blob([data], {type:"application/octet-stream"});
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      return;
+    }
+    try { await downloads.save({filename, data}); toast("保存しました"); }
+    catch(e){
+      if (e && e.code==="declined") return;
+      if (e && e.code==="rate_limited") { toast("少し待ってからもう一度お試しください"); return; }
+      toast("ファイルを保存できませんでした");
+    }
+  }
+  $("svgBtn").addEventListener("click", () => offer(safeName()+"_図面.svg", buildSVG(cur, true)));
+  $("pngBtn").addEventListener("click", () => {
+    const svg = buildSVG(cur, true);
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const vb = svg.match(/viewBox="([^"]+)"/)[1].split(" ").map(Number);
+        const scale = 1800 / Math.max(vb[2], vb[3]);
+        const c = document.createElement("canvas");
+        c.width = Math.round(vb[2]*scale); c.height = Math.round(vb[3]*scale);
+        const ctx = c.getContext("2d"); ctx.fillStyle="#fff"; ctx.fillRect(0,0,c.width,c.height);
+        ctx.drawImage(img, 0, 0, c.width, c.height);
+        c.toBlob(b => { if (b) offer(safeName()+"_図面.png", b); else toast("PNGを作れませんでした。SVGで保存してください"); }, "image/png");
+      } catch(e){ toast("PNGを作れませんでした。SVGで保存してください"); }
+    };
+    img.onerror = () => toast("PNGを作れませんでした。SVGで保存してください");
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  });
+  $("csvBtn").addEventListener("click", () => {
+    const c = cutList(cur);
+    const lines = [["部材","長さ(mm)","幅(mm)","厚み(mm)","枚数"]];
+    c.rows.forEach(r => lines.push([r.name, fmt(r.L), fmt(r.w), fmt(r.th), r.q]));
+    if (c.hw>0) lines.push(["L字金具","","","",c.hw]);
+    const csv = "\uFEFF" + lines.map(l => l.map(v => `"${String(v).replace(/"/g,'""')}"`).join(",")).join("\r\n");
+    offer(safeName()+"_木取り表.csv", csv);
+  });
+  $("exportBtn").addEventListener("click", async () => {
+    await refreshList();
+    if (!shelves.length){ toast("書き出す本棚がまだありません"); return; }
+    const d = new Date(); const stamp = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`;
+    offer(`本棚データ_${stamp}.json`, JSON.stringify({format:"shelf-notes", version:1, shelves}, null, 2));
+  });
+  $("importBtn").addEventListener("click", () => $("importFile").click());
+  $("importFile").addEventListener("change", async e => {
+    const f = e.target.files && e.target.files[0]; e.target.value = "";
+    if (!f) return;
+    try {
+      const data = JSON.parse(await f.text());
+      const arr = Array.isArray(data) ? data : (data && Array.isArray(data.shelves) ? data.shelves : null);
+      if (!arr) throw new Error("format");
+      let count = 0;
+      for (const raw of arr){
+        if (!raw || typeof raw!=="object") continue;
+        const s = Object.assign(DEFAULT(), raw);
+        if (!s.id || !/^[A-Za-z0-9_\-.~:@+]{1,100}$/.test(s.id)) s.id = newId();
+        s.updatedAt = num(s.updatedAt) || Date.now();
+        await store.save(s); count++;
+      }
+      await refreshList();
+      toast(count ? `${count}件を読み込みました` : "読み込める本棚がありませんでした");
+    } catch(err){ toast("このファイルは読み込めません。書き出したJSONファイルを選んでください"); }
+  });
+
+  // re-render drawing on theme change
+  try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", renderAll); } catch(e){}
+  new MutationObserver(renderAll).observe(document.documentElement, {attributes:true, attributeFilter:["data-theme"]});
+
+  /* ---------- init ---------- */
+  writeForm(); renderAll(); renderList();
+  $("status").textContent = "";
+
+  (async () => {
+    const c = window.claude;
+    let db = null;
+    try { db = c && c.use ? await c.use("db") : null; } catch(e){ db = null; }
+    store.db = db;
+    if (!fsSupported && location.protocol === "file:") dirError = LOCAL_SERVER_HINT;
+    if (fsSupported){
+      const h = await idbGet();
+      if (h){
+        let p = "prompt";
+        try { p = await h.queryPermission({mode:"readwrite"}); } catch(e){ p = "prompt"; }
+        if (p === "granted") store.dir = h; else pendingDir = h;
+      }
+    }
+    updateDirUI();
+    await refreshList();
+  })();
+  (async () => {
+    const c = window.claude;
+    try { downloads = c && c.use ? await c.use("downloads") : null; } catch(e){ downloads = null; }
+    if (!downloads && c){
+      ["pngBtn","svgBtn","csvBtn","exportBtn"].forEach(id => $(id).hidden = true);
+      $("dlNote").hidden = false;
+    }
+  })();
+})();
+</script>
+</body>
+</html>
