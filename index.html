@@ -137,8 +137,9 @@ input[type=file]{display:none}
           <div><label for="H">高さ</label><div class="unit"><input type="number" id="H" min="1" step="1"></div></div>
           <div><label for="D">奥行き</label><div class="unit"><input type="number" id="D" min="1" step="1"></div></div>
         </div>
-        <div class="row2 field">
-          <div><label for="t">板厚</label><div class="unit"><input type="number" id="t" min="1" step="0.5"></div></div>
+        <div class="row3 field">
+          <div><label for="t">側板の厚み</label><div class="unit"><input type="number" id="t" min="1" step="0.5"></div></div>
+          <div><label for="st">棚板の厚み</label><div class="unit"><input type="number" id="st" min="1" step="0.5"></div></div>
           <div><label for="n">棚板の枚数</label><input type="number" id="n" min="0" max="20" step="1"></div>
         </div>
         <div class="field">
@@ -222,7 +223,7 @@ input[type=file]{display:none}
             <tfoot><tr><td colspan="5" id="cutFoot"></td></tr></tfoot>
           </table>
         </div>
-        <p class="note">単位はmm。天板・地板・棚板は側板の間に入る長さ（幅 − 板厚×2）です。</p>
+        <p class="note">単位はmm。天板・地板・棚板は側板の間に入る長さ（幅 − 側板の厚み×2）です。</p>
         <div class="actions" style="margin-top:12px">
           <button class="btn" id="csvBtn">木取り表をCSVで保存</button>
         </div>
@@ -259,7 +260,7 @@ input[type=file]{display:none}
 (function(){
   const $ = id => document.getElementById(id);
   const DEFAULT = () => ({
-    id:null, name:"", W:800, H:1800, D:300, t:18, n:4, top:true, bottom:false,
+    id:null, name:"", W:800, H:1800, D:300, t:18, st:18, n:4, top:true, bottom:false,
     mode:"equal", comps:[], back:false, bt:4, brk:4, material:"", memo:"",
     over:0, overDir:"front", topOver:true, overMode:"same", shelfOvers:[], topOv:0, botOv:0
   });
@@ -270,6 +271,12 @@ input[type=file]{display:none}
   let touched = false;   // 読み込みが終わる前に操作していたら、自動で開かない
   const DATA_FILE = "data.yaml";
   const isShelf = d => !!d && typeof d === "object" && !Array.isArray(d) && "W" in d && "H" in d;
+  // 保存済みのデータを読み込む。st（棚板の厚み）がない古いデータは側板と同じ厚みにする。
+  function fromRaw(raw){
+    const s = Object.assign(DEFAULT(), raw);
+    if (raw && raw.st === undefined) s.st = s.t;
+    return s;
+  }
   const strip = s => { const o = Object.assign({}, s); Object.keys(o).forEach(k => { if (k[0] === "_") delete o[k]; }); return o; };
 
   /* ---------- helpers ---------- */
@@ -283,9 +290,10 @@ input[type=file]{display:none}
   function calc(s){
     const warns = [];
     const W=num(s.W), H=num(s.H), D=num(s.D), t=num(s.t), n=Math.max(0,Math.floor(num(s.n)));
+    const st = s.st === undefined ? t : num(s.st);   // 棚板・天板・地板の厚み
     const hb = (s.top?1:0) + (s.bottom?1:0) + n;
     const inW = W - 2*t;
-    const Hin = H - hb*t;
+    const Hin = H - hb*st;
     const over = Math.max(0, num(s.over));
     const Ds = D + over;
     const capD = s.topOver ? Ds : D;
@@ -309,14 +317,14 @@ input[type=file]{display:none}
     } else {
       comps = Array(n+1).fill(Hin/(n+1));
     }
-    if (W<=0||H<=0||D<=0||t<=0) warns.push("幅・高さ・奥行き・板厚は0より大きい数にしてください。");
+    if (W<=0||H<=0||D<=0||t<=0||st<=0) warns.push("幅・高さ・奥行き・板の厚みは0より大きい数にしてください。");
     else {
-      if (inW <= 0) warns.push("幅が板厚×2より小さいため、棚板が入りません。");
+      if (inW <= 0) warns.push("幅が側板の厚み×2より小さいため、棚板が入りません。");
       if (Hin <= 0) warns.push("高さが足りず、板を積むと高さを超えてしまいます。");
       else if (comps.some(c => c < 0)) warns.push("段ごとの高さの合計が大きすぎます。一番上の段がマイナスになっています。");
       if (s.back && maxOv>0 && s.overDir!=="front") warns.push("背板ありで棚板を後ろにはみ出させると、背板と棚板がぶつかります。");
     }
-    return {W,H,D,t,n,hb,inW,Hin,comps,warns,over,Ds,capD,shelfOv,topOv,botOv,maxOv};
+    return {W,H,D,t,st,n,hb,inW,Hin,comps,warns,over,Ds,capD,shelfOv,topOv,botOv,maxOv};
   }
 
   function boardsFromBottom(g, s){
@@ -324,14 +332,14 @@ input[type=file]{display:none}
     const boards=[], spaces=[];
     let cur = g.H;
     if (s.top === undefined) s.top = true;
-    if (s.bottom){ boards.push({y0:cur-g.t, y1:cur, kind:"地板"}); cur -= g.t; }
+    if (s.bottom){ boards.push({y0:cur-g.st, y1:cur, kind:"地板"}); cur -= g.st; }
     for (let i=0;i<=g.n;i++){
       const h = Math.max(0, g.comps[i]);
       spaces.push({y0:cur-h, y1:cur, h:g.comps[i]});
       cur -= h;
-      if (i < g.n){ boards.push({y0:cur-g.t, y1:cur, kind:"棚板", idx:i}); cur -= g.t; }
+      if (i < g.n){ boards.push({y0:cur-g.st, y1:cur, kind:"棚板", idx:i}); cur -= g.st; }
     }
-    if (s.top){ boards.push({y0:0, y1:g.t, kind:"天板"}); }
+    if (s.top){ boards.push({y0:0, y1:g.st, kind:"天板"}); }
     return {boards, spaces};
   }
 
@@ -471,7 +479,7 @@ input[type=file]{display:none}
     if (bt>0) out.push(`<text x="${px+D+bt+fs*0.4}" y="${fs}" font-size="${fs*0.8}" fill="${P.muted}">背板 ${fmt(num(s.bt))}</text>`);
     out.push(`<text x="${sideX+sideW/2}" y="${H+gap+fs*3.4}" font-size="${fs*1.05}" text-anchor="middle" fill="${P.ink}" font-weight="700">側面図</text>`);
 
-    out.push(`<text x="${minX+fs*0.6}" y="${maxY-fs*0.7}" font-size="${fs*0.75}" fill="${P.muted}">単位 mm ／ 板厚 ${fmt(g.t)}${bt>0?"・背板 "+fmt(num(s.bt)):""}${s.name?" ／ "+esc(s.name):""}</text>`);
+    out.push(`<text x="${minX+fs*0.6}" y="${maxY-fs*0.7}" font-size="${fs*0.75}" fill="${P.muted}">単位 mm ／ 側板 ${fmt(g.t)}・棚板 ${fmt(g.st)}${bt>0?"・背板 "+fmt(num(s.bt)):""}${s.name?" ／ "+esc(s.name):""}</text>`);
     out.push(`</svg>`);
     return out.join("");
   }
@@ -483,14 +491,14 @@ input[type=file]{display:none}
     rows.push({name:"側板", L:g.H, w:g.D, th:g.t, q:2});
     const tb = (s.top?1:0)+(s.bottom?1:0);
     const tD = g.D + g.topOv, bD = g.D + g.botOv;
-    if (s.top && s.bottom && tD===bD) rows.push({name:"天板・地板", L:g.inW, w:tD, th:g.t, q:2});
+    if (s.top && s.bottom && tD===bD) rows.push({name:"天板・地板", L:g.inW, w:tD, th:g.st, q:2});
     else {
-      if (s.top) rows.push({name:"天板", L:g.inW, w:tD, th:g.t, q:1});
-      if (s.bottom) rows.push({name:"地板", L:g.inW, w:bD, th:g.t, q:1});
+      if (s.top) rows.push({name:"天板", L:g.inW, w:tD, th:g.st, q:1});
+      if (s.bottom) rows.push({name:"地板", L:g.inW, w:bD, th:g.st, q:1});
     }
     const groups = new Map();
     g.shelfOv.forEach(o => { const d = g.D + o; groups.set(d, (groups.get(d)||0) + 1); });
-    [...groups.entries()].sort((a,b)=>a[0]-b[0]).forEach(([d,q]) => rows.push({name:"棚板", L:g.inW, w:d, th:g.t, q}));
+    [...groups.entries()].sort((a,b)=>a[0]-b[0]).forEach(([d,q]) => rows.push({name:"棚板", L:g.inW, w:d, th:g.st, q}));
     if (s.back) rows.push({name:"背板", L:g.H, w:g.W, th:num(s.bt), q:1});
     const hw = Math.max(0,Math.floor(num(s.brk))) * g.hb;
     const area = rows.filter(r=>r.name!=="背板").reduce((a,r)=>a + Math.max(r.L,0)*Math.max(r.w,0)*r.q, 0)/1e6;
@@ -500,7 +508,7 @@ input[type=file]{display:none}
   /* ---------- render ---------- */
   function readForm(){
     cur.name = $("name").value.trim();
-    ["W","H","D","t","bt"].forEach(k => cur[k] = num($(k).value));
+    ["W","H","D","t","st","bt"].forEach(k => cur[k] = num($(k).value));
     cur.n = Math.min(20, Math.max(0, Math.floor(num($("n").value))));
     cur.brk = Math.max(0, Math.floor(num($("brk").value)));
     cur.top = $("top").checked; cur.back = $("back").checked; cur.topOver = $("topOver").checked;
@@ -509,7 +517,7 @@ input[type=file]{display:none}
   }
   function writeForm(){
     $("name").value = cur.name||"";
-    ["W","H","D","t","n","bt","brk"].forEach(k => $(k).value = cur[k]);
+    ["W","H","D","t","st","n","bt","brk"].forEach(k => $(k).value = cur[k]);
     $("top").checked = !!cur.top; $("back").checked = !!cur.back; $("topOver").checked = !!cur.topOver;
     $("over").value = cur.over;
     $("material").value = cur.material||""; $("memo").value = cur.memo||"";
@@ -622,7 +630,7 @@ input[type=file]{display:none}
     const out = [
       "# 本棚の図面ノート（index.html）のデータ",
       "# 本棚の名前をキーにした辞書。長さの単位はすべて mm。",
-      "#   W/H/D: 幅・高さ・奥行き, t: 板厚, n: 棚板の枚数",
+      "#   W/H/D: 幅・高さ・奥行き, t: 側板の厚み, st: 棚板（天板・地板）の厚み, n: 棚板の枚数",
       "#   top/bottom: 天板・地板を入れるか, back/bt: 背板とその厚み, brk: L字金具（1枚あたり）",
       "#   mode: 棚の間隔（equal=均等 / custom=段ごと）, comps: 下から順の各段の内寸高さ",
       "#   overMode: はみ出しの指定（same=全部同じ / each=1枚ずつ）, over: はみ出し",
@@ -725,7 +733,7 @@ input[type=file]{display:none}
     Object.keys(src).forEach(key => {
       const v = src[key];
       if (!isShelf(v)) return;
-      const s = Object.assign(DEFAULT(), v);
+      const s = fromRaw(v);
       s.id = String(key);
       if (!s.name) s.name = String(key);
       s.updatedAt = toTime(v.updatedAt);
@@ -952,7 +960,7 @@ input[type=file]{display:none}
     $("btWrap").hidden = !cur.back;
     syncOptions();
     if (cur.overMode==="each" && (cur.n!==prevN || e.target.id==="top" || e.target.id==="D")) renderOvers();
-    if (cur.mode==="custom" && (cur.n!==prevN || ["H","t","top"].includes(e.target.id))) {
+    if (cur.mode==="custom" && (cur.n!==prevN || ["H","st","top"].includes(e.target.id))) {
       if (cur.n!==prevN) renderComps(); else updateRest();
     }
     renderAll();
@@ -976,7 +984,7 @@ input[type=file]{display:none}
 
   function openShelf(s){
     touched = true;
-    cur = Object.assign(DEFAULT(), JSON.parse(JSON.stringify(s)));
+    cur = fromRaw(JSON.parse(JSON.stringify(s)));
     writeForm(); renderAll(); renderList();
   }
   $("newBtn").addEventListener("click", () => { touched = true; cur = DEFAULT(); writeForm(); renderAll(); renderList(); $("name").focus(); });
@@ -1076,7 +1084,7 @@ input[type=file]{display:none}
       let count = 0;
       for (const raw of arr){
         if (!raw || typeof raw!=="object") continue;
-        const s = Object.assign(DEFAULT(), raw);
+        const s = fromRaw(raw);
         if (!s.id || !/^[A-Za-z0-9_\-.~:@+]{1,100}$/.test(s.id)) s.id = newId();
         s.updatedAt = num(s.updatedAt) || Date.now();
         await store.save(s); count++;
